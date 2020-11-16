@@ -5,8 +5,6 @@ import {
   Typography,
   TextField,
   MenuItem,
-  Tabs,
-  Tab,
   Table,
   TableBody,
   TableCell,
@@ -19,6 +17,9 @@ import {
 import ToggleButton from '@material-ui/lab/ToggleButton';
 import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup';
 
+import TrendingUpIcon from '@material-ui/icons/TrendingUp';
+import TrendingDownIcon from '@material-ui/icons/TrendingDown';
+
 import { colors } from '../../theme'
 import * as moment from 'moment';
 
@@ -26,11 +27,7 @@ import Loader from '../loader'
 import Snackbar from '../snackbar'
 
 import {
-  ETHERSCAN_URL,
-  ADDRESS,
   ERROR,
-  CONNECTION_CONNECTED,
-  CONNECTION_DISCONNECTED,
   CONFIGURE_RETURNED,
   GET_BALANCES,
   BALANCES_RETURNED,
@@ -105,7 +102,12 @@ const styles = theme => ({
     alignItems: 'center'
   },
   sectionHeading: {
-    color: colors.darkGray
+    color: colors.darkGray,
+    flex: '1'
+  },
+  sectionHeadingOptions: {
+    color: colors.darkGray,
+    minWidth: '100%'
   },
   defaultColor: {
     color: colors.text
@@ -132,7 +134,7 @@ const styles = theme => ({
   valContainer: {
     display: 'flex',
     flexDirection: 'column',
-    width: '100%',
+    flex: '1',
     marginTop: '24px'
   },
   balances: {
@@ -142,7 +144,7 @@ const styles = theme => ({
   },
   assetSelectMenu: {
     padding: '15px 15px 15px 20px',
-    minWidth: '300px',
+    minWidth: '400px',
     display: 'flex'
   },
   assetSelectIcon: {
@@ -175,7 +177,8 @@ const styles = theme => ({
     padding: '9px'
   },
   buttonGroup: {
-    width: 'fit-content'
+    width: 'fit-content',
+    height: '47px'
   },
   actionButton: {
     height: '47px',
@@ -198,6 +201,20 @@ const styles = theme => ({
   },
   addPadding: {
     paddingRight: '6px'
+  },
+  divider: {
+    minWidth: '100%'
+  },
+  between: {
+    width: '40px'
+  },
+  optionIconSelected: {
+    marginLeft: '6px',
+    fill: colors.white
+  },
+  optionIcon: {
+    marginLeft: '6px',
+    fill: '#555'
   }
 });
 
@@ -226,14 +243,14 @@ class Dashboard extends Component {
 
       optionFees: null,
 
-      optionType: 1,
+      optionType: 0,
       asset: '',
       assetError: null,
       assetAmount: '',
       assetAmountError: null,
-      strikePrice: '',
-      strikePriceError: null,
-      holdingPeriod: 0,
+      // strikePrice: '',
+      // strikePriceError: null,
+      holdingPeriod: 4,
       holdingPeriodError: null,
       holdingPeriodOptions: [
         { value: 0, description: '1 day' },
@@ -284,7 +301,7 @@ class Dashboard extends Component {
     this.setState(snackbarObj)
     this.setState({
       loading: false,
-      strikePrice: '',
+      // strikePrice: '',
       assetAmount: '',
       holdingPeriod: 0
     })
@@ -341,10 +358,8 @@ class Dashboard extends Component {
     const { classes } = this.props;
     const {
       loading,
-      assets,
       account,
       tabValue,
-      options,
       snackbarMessage
     } = this.state
 
@@ -368,10 +383,10 @@ class Dashboard extends Component {
             <div className={ classes.optionsHeader} >
               <Typography variant={ 'h3' } className={ classes.sectionHeading }>Your Options</Typography>
               <ToggleButtonGroup value={ tabValue } onChange={this.onTabChange} aria-label="State" exclusive size={ 'small' }>
-                <ToggleButton value={0} aria-label="Put">
+                <ToggleButton value={0} aria-label="Active">
                   <Typography variant={ 'h4' }>Active</Typography>
                 </ToggleButton>
-                <ToggleButton value={1} aria-label="Call">
+                <ToggleButton value={1} aria-label="Closed">
                   <Typography variant={ 'h4' }>Closed</Typography>
                 </ToggleButton>
               </ToggleButtonGroup>
@@ -396,24 +411,13 @@ class Dashboard extends Component {
 
   renderOptionCreate = () => {
     const { classes } = this.props
-    const {
-      amount,
-      asset,
-      currentPrice,
-      type,
-      strikePrice,
-      premium,
-      breakEven
-    } = this.state
-
 
     return (
       <div className={ classes.optionsCreateContainer }>
-        <Typography variant={ 'h3' } className={ classes.sectionHeading }>Create Option</Typography>
+        <Typography variant={ 'h3' } className={ classes.sectionHeadingOptions }>Create Option</Typography>
         { this.renderOptionType() }
         { this.renderAssetInput() }
-        { this.renderStrikePrice() }
-        { this.renderHoldingPeriod() }
+        <div className={ classes.divider }></div>
         { this.renderOptionText() }
         { this.renderActionButton() }
       </div>
@@ -427,11 +431,37 @@ class Dashboard extends Component {
       optionType,
       asset,
       assetAmount,
-      strikePrice,
-      holdingPeriod,
+      // strikePrice,
+      // holdingPeriod,
       optionFees,
+      assets
     } = this.state
 
+    let breakEven = null
+    let target = null
+    let profit = null
+
+    let selectedAsset = null
+
+    const selectedAssetArr = assets.filter((as) => {
+      return as.symbol === asset
+    })
+    if(selectedAssetArr && selectedAssetArr.length > 0) {
+      selectedAsset = selectedAssetArr[0]
+    }
+
+    if(optionFees && optionType === 1 && selectedAsset) {
+
+      breakEven = (parseFloat(selectedAsset.price) - (parseFloat(optionFees)/assetAmount)).toFixed(6)
+      target = (selectedAsset.price*3/4).toFixed(4)
+      profit = ((breakEven - target)*assetAmount).toFixed(4)
+
+    } else if (optionFees && optionType === 0 && selectedAsset) {
+
+      breakEven = (parseFloat(selectedAsset.price) + parseFloat(optionFees)/assetAmount).toFixed(4)
+      target = (selectedAsset.price*4/3).toFixed(4)
+      profit = ((target - breakEven)*assetAmount).toFixed(4)
+    }
 
     return (
       <div className={ classes.optionsText }>
@@ -439,24 +469,19 @@ class Dashboard extends Component {
           <Typography variant='h4' className={ classes.addPadding } >I have </Typography>
           <Typography variant='h3' className={ classes.addPadding }>{ assetAmount ? assetAmount : '<Option Size>' } { asset } </Typography>
           <Typography variant='h4' className={ classes.addPadding }>and I think the price will go { this.mapOptionTypeToText(optionType) }</Typography>
-          <Typography variant='h3' className={ classes.addPadding }>{ strikePrice ? strikePrice : '<Strike Price>' } { quoteAsset.symbol } </Typography>
-          <Typography variant='h4' className={ classes.addPadding }>within the next </Typography>
-          <Typography variant='h3' className={ classes.addPadding }>{ holdingPeriod !== null ? this.mapHoldingPeriodToText(holdingPeriod) : '<Holding Period>' }. </Typography>
+          <Typography variant='h4' className={ classes.addPadding }>within the next 28 days.</Typography>
           <Typography variant='h4' className={ classes.addPadding }>This will cost me </Typography>
-          <Typography variant='h3' className={ classes.addPadding }>{ optionFees ? optionFees.total.toFixed(4) : '<Total Fees>' } { quoteAsset.symbol } </Typography>
+          <Typography variant='h3' className={ classes.addPadding }>{ optionFees ? optionFees.toFixed(4) : '<Total Fees>' } { quoteAsset.symbol }. </Typography>
+
+          <Typography variant='h4' className={ classes.addPadding }>If the price { this.mapOptionTypeV2toText(optionType) } </Typography>
+          <Typography variant='h3' className={ classes.addPadding }>{ breakEven ? breakEven : '<break-even>' } { quoteAsset.symbol } </Typography>
+          <Typography variant='h4' className={ classes.addPadding }>I will be in profit. If the price { this.mapOptionTypeV3toText(optionType) } </Typography>
+          <Typography variant='h3' className={ classes.addPadding }>{ target ? target : '<target>' } { quoteAsset.symbol } </Typography>
+          <Typography variant='h4' className={ classes.addPadding }>, I will have made </Typography>
+          <Typography variant='h3' className={ classes.addPadding }>{ profit ? profit : '<profit>' } { quoteAsset.symbol } </Typography>
         </div>
       </div>
 
-    )
-
-    return (
-      <div className={ classes.optionsText }>
-        <Typography variant='h3'>
-          {
-            `I have ${assetAmount ? assetAmount : '<Option Size>'} ${ asset ? asset : '<Option Size>' } and I think the price will go ${ this.mapOptionTypeToText(optionType) } ${ strikePrice ? strikePrice : '<Strike Price>' } ${ quoteAsset.symbol } within the next ${ holdingPeriod !== null ? this.mapHoldingPeriodToText(holdingPeriod) : '<Holding Period>' }. This will cost me ${ optionFees ? optionFees.total.toFixed(4) : '<Total Fees>' } ${ quoteAsset.symbol }`
-          }
-        </Typography>
-      </div>
     )
   }
 
@@ -472,11 +497,11 @@ class Dashboard extends Component {
   mapOptionTypeToText = (type) => {
     switch (type) {
       case 1:
-        return 'down to below '
-      case 2:
-        return 'up to above '
+        return 'down '
+      case 0:
+        return 'up '
       default:
-        return 'down to below '
+        return 'down '
     }
   }
 
@@ -484,10 +509,21 @@ class Dashboard extends Component {
     switch (type) {
       case 1:
         return 'dips below '
-      case 2:
-        return 'up to above '
+      case 0:
+        return 'rises above '
       default:
-        return 'down to below '
+        return 'dips below '
+    }
+  }
+
+  mapOptionTypeV3toText = (type) => {
+    switch (type) {
+      case 1:
+        return 'drops to '
+      case 0:
+        return 'rises to '
+      default:
+        return 'drops to '
     }
   }
 
@@ -507,11 +543,13 @@ class Dashboard extends Component {
         </div>
         <div>
           <ToggleButtonGroup value={ optionType } onChange={this.onOptionTypeChange} aria-label="Option Type" exclusive size={ 'small' } className={ classes.buttonGroup }>
+            <ToggleButton value={0} aria-label="Call">
+              <Typography variant={ 'h4' }>Call</Typography>
+              <TrendingUpIcon className={ optionType===0 ? classes.optionIconSelected : classes.optionIcon } />
+            </ToggleButton>
             <ToggleButton value={1} aria-label="Put">
               <Typography variant={ 'h4' }>Put</Typography>
-            </ToggleButton>
-            <ToggleButton value={2} aria-label="Call">
-              <Typography variant={ 'h4' }>Call</Typography>
+              <TrendingDownIcon className={ optionType===1 ? classes.optionIconSelected : classes.optionIcon } />
             </ToggleButton>
           </ToggleButtonGroup>
         </div>
@@ -532,8 +570,6 @@ class Dashboard extends Component {
       asset,
       strikePrice,
       strikePriceError,
-      currentPrice,
-      currentPriceError,
     } = this.state
 
     let selectedAsset = null
@@ -563,15 +599,15 @@ class Dashboard extends Component {
             value={ strikePrice }
             error={ strikePriceError }
             onChange={ this.onChange }
-            placeholder={ selectedAsset ? selectedAsset.price : '0.00' }
+            placeholder={ selectedAsset ? selectedAsset.price.toFixed(4) : '0.00' }
             variant="outlined"
-            helperText={`Current price: $${ selectedAsset ? selectedAsset.price : '0.00' }`}
+            helperText={`Current price: ${ selectedAsset ? selectedAsset.price : '0.00' } WETH per 1 ${ selectedAsset.symbol }`}
             InputProps={{
               startAdornment: <div className={ classes.assetContainerPadded }>
                 <div className={ classes.assetSelectIcon }>
                   <img
                     alt=""
-                    src={ require('../../assets/tokens/'+quoteAsset.symbol+'-logo.png') }
+                    src={ this.getLogo(quoteAsset.symbol) }
                     height="30px"
                   />
                 </div>
@@ -591,7 +627,6 @@ class Dashboard extends Component {
     const {
       holdingPeriodOptions,
       holdingPeriod,
-      holdingPeriodError,
       loading
     } = this.state
 
@@ -639,14 +674,14 @@ class Dashboard extends Component {
 
   renderActionButton = () => {
     const { classes } = this.props
-    const { loading, strikePrice, assetAmount } = this.state
+    const { loading, assetAmount } = this.state
 
     return (
       <Button
         className={ classes.actionButton }
         variant="outlined"
         color="primary"
-        disabled={ loading || !strikePrice || !assetAmount }
+        disabled={ loading || !assetAmount }
         onClick={ this.onCreateOption }
         fullWidth
         >
@@ -660,17 +695,16 @@ class Dashboard extends Component {
       holdingPeriod,
       asset,
       assetAmount,
-      strikePrice,
+      // strikePrice,
       optionType,
       optionFees,
     } = this.state
 
     if(asset && asset !== '' &&
-      assetAmount && assetAmount !== '' && !isNaN(assetAmount) &&
-      strikePrice && strikePrice !== '' && !isNaN(assetAmount)) {
+      assetAmount && assetAmount !== '' && !isNaN(assetAmount)) {
 
       this.setState({ loading: true })
-      dispatcher.dispatch({ type: CREATE_OPTION, content: { holdingPeriod, asset, assetAmount, strikePrice, optionType, fees: optionFees }})
+      dispatcher.dispatch({ type: CREATE_OPTION, content: { holdingPeriod, asset, assetAmount, optionType, fees: optionFees }})
     }
   }
 
@@ -686,14 +720,10 @@ class Dashboard extends Component {
             <TableHead>
               <TableRow>
                 <TableCell>Asset</TableCell>
-                <TableCell>Holder</TableCell>
-                <TableCell align="right">Type</TableCell>
-                <TableCell align="right">State</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell align="right">Strike</TableCell>
-                <TableCell align="right">Locked</TableCell>
-                <TableCell align="right">Premium</TableCell>
-                <TableCell align="right">Expires</TableCell>
+                <TableCell align="right">Option Type</TableCell>
+                <TableCell align="right">Option Size</TableCell>
+                <TableCell align="right">Strike Price</TableCell>
+                <TableCell align="right">Expiry Date</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -738,47 +768,52 @@ class Dashboard extends Component {
     const { classes } = this.props
     const {
       tabValue,
-      options
+      options,
+      quoteAsset
     } = this.state
 
     if(!options || options.length === 0) {
       return <TableRow className={ classes.optionRow } key={'No'}>
-        <TableCell colSpan={8} align="center">
+        <TableCell colSpan={9} align="center">
           <Typography>There are no options here</Typography>
         </TableCell>
       </TableRow>
     }
 
     return options.filter((option) => {
+
+      // return true
+
       if(!option) {
         return false
       }
 
       if(tabValue === 0) {
-        return option.state === '1'
+        return moment(option.expire*1e3) > moment()
       } else if (tabValue === 1) {
-        return option.state !== '1'
+        return moment(option.expire*1e3) <= moment()
       } else {
         return false
       }
     }).map((option) => {
-
-      let address = null;
-      if (option.holder) {
-        address = option.holder.substring(0,6)+'...'+option.holder.substring(option.holder.length-4,option.holder.length)
-      }
-
       return (
         <TableRow className={ classes.optionRow } key={option.index}>
-          <TableCell><Typography variant='h4'>{ option.symbol }</Typography></TableCell>
-          <TableCell><Typography variant='h4'><a className={ classes.defaultColor } href={ETHERSCAN_URL+ADDRESS+option.holder} target='blank'>{ address }</a></Typography></TableCell>
+          <TableCell>
+            <div className={ classes.assetSelectIcon }>
+              <img
+                alt=""
+                src={ this.getLogo(option.asset.symbol) }
+                height="30px"
+              />
+            </div>
+            <div className={ classes.assetSelectIconName }>
+              <Typography variant='h4'>{ option.asset.symbol }</Typography>
+            </div>
+          </TableCell>
           <TableCell align="right"><Typography variant='h4'>{ this.mapTypeToString(option.optionType) }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ this.mapStateToString(option.state) }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ option.amount ? (option.amount/1e18).toFixed(4) : '0' }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ option.strike ? (option.strike/1e18).toFixed(4) : '0' }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ option.lockedAmount ? (option.lockedAmount/1e18).toFixed(4) : '0' }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ option.premium ? (option.premium/1e18).toFixed(4) : '0' }</Typography></TableCell>
-          <TableCell align="right"><Typography variant='h4'>{ option.expiration ? moment(option.expiration*1e3).format("YYYY/MM/DD kk:mm") : '' }</Typography></TableCell>
+          <TableCell align="right"><Typography variant='h4'>{ option.amount ? (option.amount/10**option.asset.decimals).toFixed(4) : '0' } { option.asset.symbol }</Typography></TableCell>
+          <TableCell align="right"><Typography variant='h4'>{ option.strike ? (option.strike/10**quoteAsset.decimals).toFixed(4) : '0' } { quoteAsset.symbol }</Typography></TableCell>
+          <TableCell align="right"><Typography variant='h4'>{ option.expire ? moment(option.expire*1e3).format("YYYY/MM/DD kk:mm") : '' }</Typography></TableCell>
         </TableRow>
       )
     })
@@ -791,11 +826,21 @@ class Dashboard extends Component {
 
     const {
       loading,
+      assets,
       asset,
-      assetError,
       assetAmount,
       assetAmountError
     } = this.state
+
+
+    let selectedAsset = null
+
+    const selectedAssetArr = assets.filter((as) => {
+      return as.symbol === asset
+    })
+    if(selectedAssetArr && selectedAssetArr.length > 0) {
+      selectedAsset = selectedAssetArr[0]
+    }
 
     return (
       <div className={ classes.valContainer }>
@@ -817,6 +862,7 @@ class Dashboard extends Component {
             onChange={ this.onChange }
             placeholder="0.00"
             variant="outlined"
+            helperText={`Current price: ${ selectedAsset ? selectedAsset.price : '0.00' } WETH per 1 ${ selectedAsset.symbol }`}
             InputProps={{
               startAdornment: <div className={ classes.assetContainer }>{ this.renderAssetSelect() }</div>,
             }}
@@ -845,7 +891,7 @@ class Dashboard extends Component {
                 <div className={ classes.assetSelectIcon }>
                   <img
                     alt=""
-                    src={ require('../../assets/tokens/'+option+'-logo.png') }
+                    src={ this.getLogo(option) }
                     height="30px"
                   />
                 </div>
@@ -868,6 +914,7 @@ class Dashboard extends Component {
 
   renderAssetOption = (option) => {
     const { classes } = this.props
+    const { quoteAsset } = this.state
 
     return (
       <MenuItem key={option.symbol} value={option.symbol} className={ classes.assetSelectMenu }>
@@ -875,7 +922,7 @@ class Dashboard extends Component {
           <div className={ classes.assetSelectIcon }>
             <img
               alt=""
-              src={ require('../../assets/tokens/'+option.symbol+'-logo.png') }
+              src={ this.getLogo(option.symbol) }
               height="30px"
             />
           </div>
@@ -883,11 +930,22 @@ class Dashboard extends Component {
             <Typography variant='h4'>{ option.symbol }</Typography>
           </div>
           <div className={ classes.assetSelectBalance }>
-            <Typography variant='h4'>{ option.balance ? option.balance.toFixed(2) : '0.00' } { option.symbol }</Typography>
+            <Typography variant='h4'>{ option.price ? option.price.toFixed(4) : '0.0000' } { quoteAsset ? quoteAsset.symbol :  '' }</Typography>
           </div>
         </React.Fragment>
       </MenuItem>
     )
+  }
+
+  getLogo = (symbol) => {
+    let logo = null
+    try {
+      logo = require('../../assets/tokens/'+symbol+'-logo.png')
+    } catch(ex) {
+      logo = require('../../assets/tokens/unknown-logo.png')
+    }
+
+    return logo
   }
 
   onChange = (event) => {
@@ -928,46 +986,27 @@ class Dashboard extends Component {
   mapTypeToString = (state) => {
     switch (state) {
       case '0':
-        return 'Invalid'
+        return 'CALL'
       case '1':
-        return 'Put'
-      case '2':
-        return 'Call'
+        return 'PUT'
       default:
         return 'Invalid'
     }
   }
-
-  mapStateToString = (state) => {
-    switch (state) {
-      case '0':
-        return 'Inactive'
-      case '1':
-        return 'Active'
-      case '2':
-        return 'Exercised'
-      case '3':
-        return 'Expired'
-      default:
-        return 'Inactive'
-    }
-  }
-
 
   getFees = () => {
     const {
       holdingPeriod,
       asset,
       assetAmount,
-      strikePrice,
+      // strikePrice,
       optionType,
     } = this.state
 
     if(asset && asset !== '' &&
-      assetAmount && assetAmount !== '' && !isNaN(assetAmount) &&
-      strikePrice && strikePrice !== '' && !isNaN(assetAmount)) {
+      assetAmount && assetAmount !== '' && !isNaN(assetAmount)) {
 
-      dispatcher.dispatch({ type: GET_OPTIONS_FEES, content: { holdingPeriod, asset, assetAmount, strikePrice, optionType }})
+      dispatcher.dispatch({ type: GET_OPTIONS_FEES, content: { holdingPeriod, asset, assetAmount, optionType }})
     }
   }
 }

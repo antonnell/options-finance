@@ -89,7 +89,7 @@ class App extends Component {
             background: "#f9fafb"
           }}>
             <Switch>
-              <Route path='/dashboard'>
+              <Route path='/options'>
                 <Header />
                 <Dashboard />
               </Route>

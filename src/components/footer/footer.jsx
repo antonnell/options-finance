@@ -84,7 +84,7 @@ class Footer extends Component {
   }
 
   render() {
-    const { classes, location } = this.props;
+    const { classes } = this.props;
 
     return (
       <div className={classes.footer}>
