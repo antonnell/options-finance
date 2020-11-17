@@ -121,7 +121,6 @@ const styles = theme => ({
     flexWrap: 'wrap',
     width: '100%',
   },
-
   flexy: {
     width: '100%',
     display: 'flex'
@@ -248,8 +247,8 @@ class Dashboard extends Component {
       assetError: null,
       assetAmount: '',
       assetAmountError: null,
-      // strikePrice: '',
-      // strikePriceError: null,
+      strikePrice: '',
+      strikePriceError: null,
       holdingPeriod: 4,
       holdingPeriodError: null,
       holdingPeriodOptions: [
@@ -301,7 +300,7 @@ class Dashboard extends Component {
     this.setState(snackbarObj)
     this.setState({
       loading: false,
-      // strikePrice: '',
+      strikePrice: '',
       assetAmount: '',
       holdingPeriod: 0
     })
@@ -416,7 +415,12 @@ class Dashboard extends Component {
       <div className={ classes.optionsCreateContainer }>
         <Typography variant={ 'h3' } className={ classes.sectionHeadingOptions }>Create Option</Typography>
         { this.renderOptionType() }
+        <div className={ classes.between }></div>
         { this.renderAssetInput() }
+        <div className={ classes.divider }></div>
+        { this.renderHoldingPeriod() }
+        <div className={ classes.between }></div>
+        { this.renderStrikePrice() }
         <div className={ classes.divider }></div>
         { this.renderOptionText() }
         { this.renderActionButton() }
@@ -431,8 +435,8 @@ class Dashboard extends Component {
       optionType,
       asset,
       assetAmount,
-      // strikePrice,
-      // holdingPeriod,
+      strikePrice,
+      holdingPeriod,
       optionFees,
       assets
     } = this.state
@@ -468,8 +472,9 @@ class Dashboard extends Component {
         <div className={ classes.optionsTypography }>
           <Typography variant='h4' className={ classes.addPadding } >I have </Typography>
           <Typography variant='h3' className={ classes.addPadding }>{ assetAmount ? assetAmount : '<Option Size>' } { asset } </Typography>
-          <Typography variant='h4' className={ classes.addPadding }>and I think the price will go { this.mapOptionTypeToText(optionType) }</Typography>
-          <Typography variant='h4' className={ classes.addPadding }>within the next 28 days.</Typography>
+          <Typography variant='h4' className={ classes.addPadding }>and I think the price will go { this.mapOptionTypeToText(optionType) } </Typography>
+          <Typography variant='h3' className={ classes.addPadding }>{ strikePrice ? strikePrice : '<Strike Price>' } { quoteAsset.symbol } </Typography>
+          <Typography variant='h4' className={ classes.addPadding }>within the next { holdingPeriod ? holdingPeriod : '<Holding Period>' } days.</Typography>
           <Typography variant='h4' className={ classes.addPadding }>This will cost me </Typography>
           <Typography variant='h3' className={ classes.addPadding }>{ optionFees ? optionFees.toFixed(4) : '<Total Fees>' } { quoteAsset.symbol }. </Typography>
 
@@ -826,21 +831,10 @@ class Dashboard extends Component {
 
     const {
       loading,
-      assets,
       asset,
       assetAmount,
       assetAmountError
     } = this.state
-
-
-    let selectedAsset = null
-
-    const selectedAssetArr = assets.filter((as) => {
-      return as.symbol === asset
-    })
-    if(selectedAssetArr && selectedAssetArr.length > 0) {
-      selectedAsset = selectedAssetArr[0]
-    }
 
     return (
       <div className={ classes.valContainer }>
@@ -862,7 +856,6 @@ class Dashboard extends Component {
             onChange={ this.onChange }
             placeholder="0.00"
             variant="outlined"
-            helperText={`Current price: ${ selectedAsset ? selectedAsset.price : '0.00' } WETH per 1 ${ selectedAsset.symbol }`}
             InputProps={{
               startAdornment: <div className={ classes.assetContainer }>{ this.renderAssetSelect() }</div>,
             }}
@@ -999,14 +992,14 @@ class Dashboard extends Component {
       holdingPeriod,
       asset,
       assetAmount,
-      // strikePrice,
+      strikePrice,
       optionType,
     } = this.state
 
     if(asset && asset !== '' &&
       assetAmount && assetAmount !== '' && !isNaN(assetAmount)) {
 
-      dispatcher.dispatch({ type: GET_OPTIONS_FEES, content: { holdingPeriod, asset, assetAmount, optionType }})
+      dispatcher.dispatch({ type: GET_OPTIONS_FEES, content: { holdingPeriod, strikePrice, asset, assetAmount, optionType }})
     }
   }
 }

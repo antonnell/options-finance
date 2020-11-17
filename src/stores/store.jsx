@@ -443,6 +443,7 @@ class Store {
     try {
       const account = store.getStore('account')
       const assets = store.getStore('assets')
+      const quoteAsset = store.getStore('quoteAsset')
 
       if(!account || !account.address) {
         return false
@@ -453,6 +454,9 @@ class Store {
       const {
         asset,
         assetAmount,
+        strikePrice,
+        holdingPeriod,
+        optionType
       } = payload.content
 
       const selectedAssetArr = assets.filter((theAsset) => {
@@ -463,10 +467,32 @@ class Store {
 
       const optionsReserveContract = new web3.eth.Contract(OptionsReserveABI, OPTIONS_RESERVE_ADDRESS)
       const amount = Big(assetAmount).times(Big(10).pow(parseInt(selectedAsset.decimals)))
-      const cost = await optionsReserveContract.methods.cost(selectedAsset.address, amount.toFixed(0)).call({ from: account.address });
-      const fees = await optionsReserveContract.methods.fees(selectedAsset.address, cost).call({ from: account.address });
 
-      let returnFees = fees/10**selectedAsset.decimals
+      let period = 0
+      switch (holdingPeriod) {
+        case 0:
+          period = 4860
+          break;
+        case 1:
+          period = 4860*7
+          break;
+        case 2:
+          period = 4860*14
+          break;
+        case 3:
+          period = 4860*21
+          break;
+        case 4:
+          period = 4860*28
+          break;
+        default:
+          period = 4860
+          break;
+      }
+
+      const fees = await optionsReserveContract.methods.fee(quoteAsset.address, selectedAsset.address, amount.toFixed(0), 2, period.toFixed(0), optionType).call({ from: account.address });
+      console.log(fees)
+      let returnFees = fees/10**quoteAsset.decimals
 
       return emitter.emit(OPTIONS_FEES_RETURNED, returnFees)
 
@@ -491,6 +517,8 @@ class Store {
         asset,
         assetAmount,
         optionType,
+        holdingPeriod,
+        strikePrice,
         fees
       } = payload.content
 
