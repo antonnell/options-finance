@@ -82,7 +82,7 @@ const styles = theme => ({
     padding: '12px',
     border: '1px solid rgb(174, 174, 174)',
     borderRadius: '0.75rem',
-    marginBottom: '24px',
+    marginBottom: '40px',
     background: colors.white
   },
   optionsContainer: {
@@ -366,7 +366,7 @@ class Dashboard extends Component {
       return (
         <div className={ classes.root }>
           <div className={ classes.investedContainerLoggedOut }>
-          <Typography variant={'h5'} className={ classes.disaclaimer }>This project is in beta. Use at your own risk.</Typography>
+            <Typography variant={'h5'} className={ classes.disaclaimer }>This project is in beta. Use at your own risk.</Typography>
             <div className={ classes.introCenter }>
               <Typography variant='h3'>Connect your wallet to continue</Typography>
             </div>
@@ -378,6 +378,7 @@ class Dashboard extends Component {
     return (
       <div className={ classes.root }>
         <div className={ classes.investedContainer}>
+          <Typography variant={'h5'} className={ classes.disaclaimer }>This project is in beta. Use at your own risk.</Typography>
           <div className={ classes.optionsContainer }>
             <div className={ classes.optionsHeader} >
               <Typography variant={ 'h3' } className={ classes.sectionHeading }>Your Options</Typography>
@@ -454,16 +455,16 @@ class Dashboard extends Component {
       selectedAsset = selectedAssetArr[0]
     }
 
-    if(optionFees && optionType === 1 && selectedAsset) {
+    if(strikePrice && strikePrice !== '' && optionFees && optionType === 1 && selectedAsset) {
 
       breakEven = (parseFloat(selectedAsset.price) - (parseFloat(optionFees)/assetAmount)).toFixed(6)
-      target = (selectedAsset.price*3/4).toFixed(4)
+      target = (selectedAsset.price*9/10).toFixed(4)
       profit = ((breakEven - target)*assetAmount).toFixed(4)
 
-    } else if (optionFees && optionType === 0 && selectedAsset) {
+    } else if (strikePrice && strikePrice !== '' && optionFees && optionType === 0 && selectedAsset) {
 
       breakEven = (parseFloat(selectedAsset.price) + parseFloat(optionFees)/assetAmount).toFixed(4)
-      target = (selectedAsset.price*4/3).toFixed(4)
+      target = (selectedAsset.price*11/10).toFixed(4)
       profit = ((target - breakEven)*assetAmount).toFixed(4)
     }
 
@@ -474,7 +475,7 @@ class Dashboard extends Component {
           <Typography variant='h3' className={ classes.addPadding }>{ assetAmount ? assetAmount : '<Option Size>' } { asset } </Typography>
           <Typography variant='h4' className={ classes.addPadding }>and I think the price will go { this.mapOptionTypeToText(optionType) } </Typography>
           <Typography variant='h3' className={ classes.addPadding }>{ strikePrice ? strikePrice : '<Strike Price>' } { quoteAsset.symbol } </Typography>
-          <Typography variant='h4' className={ classes.addPadding }>within the next { holdingPeriod ? holdingPeriod : '<Holding Period>' } days.</Typography>
+          <Typography variant='h4' className={ classes.addPadding }>within the next { this.mapHoldingPeriodToText(holdingPeriod) } days.</Typography>
           <Typography variant='h4' className={ classes.addPadding }>This will cost me </Typography>
           <Typography variant='h3' className={ classes.addPadding }>{ optionFees ? optionFees.toFixed(4) : '<Total Fees>' } { quoteAsset.symbol }. </Typography>
 
@@ -606,7 +607,7 @@ class Dashboard extends Component {
             onChange={ this.onChange }
             placeholder={ selectedAsset ? selectedAsset.price.toFixed(4) : '0.00' }
             variant="outlined"
-            helperText={`Current price: ${ selectedAsset ? selectedAsset.price : '0.00' } WETH per 1 ${ selectedAsset.symbol }`}
+            helperText={`Current price: ${ selectedAsset ? selectedAsset.price : '0.00' } ${ quoteAsset.symbol } per 1 ${ selectedAsset.symbol }`}
             InputProps={{
               startAdornment: <div className={ classes.assetContainerPadded }>
                 <div className={ classes.assetSelectIcon }>
@@ -700,16 +701,19 @@ class Dashboard extends Component {
       holdingPeriod,
       asset,
       assetAmount,
-      // strikePrice,
+      strikePrice,
       optionType,
       optionFees,
     } = this.state
 
     if(asset && asset !== '' &&
-      assetAmount && assetAmount !== '' && !isNaN(assetAmount)) {
+      assetAmount && assetAmount !== '' && !isNaN(assetAmount) &&
+      strikePrice && strikePrice !== '' && !isNaN(strikePrice)) {
+
+      console.log({ holdingPeriod, strikePrice, asset, assetAmount, optionType, fees: optionFees })
 
       this.setState({ loading: true })
-      dispatcher.dispatch({ type: CREATE_OPTION, content: { holdingPeriod, asset, assetAmount, optionType, fees: optionFees }})
+      dispatcher.dispatch({ type: CREATE_OPTION, content: { holdingPeriod, strikePrice, asset, assetAmount, optionType, fees: optionFees }})
     }
   }
 

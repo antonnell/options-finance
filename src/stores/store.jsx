@@ -55,6 +55,12 @@ class Store {
           balance: 0
         },
         {
+          address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          decimals: "18",
+          symbol: "WETH",
+          balance: 0
+        },
+        {
           address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
           decimals: "6",
           symbol: "USDC",
@@ -64,12 +70,6 @@ class Store {
           address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
           decimals: "6",
           symbol: "USDT",
-          balance: 0
-        },
-        {
-          address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-          decimals: "18",
-          symbol: "DAI",
           balance: 0
         },
         {
@@ -128,9 +128,9 @@ class Store {
         }
       ],
       quoteAsset: {
-        address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
         decimals: "18",
-        symbol: "WETH",
+        symbol: "DAI",
         balance: 0
       }
     }
@@ -199,22 +199,22 @@ class Store {
         let pairPopulated = await this._populatePairsTokens(web3, pair)
         pairPopulated.address = pair
 
-        let returnTokken = pairPopulated.token0
+        let returnToken = pairPopulated.token0
 
         //get price
         const price = await this._callPrice(web3, pairPopulated)
-        const erc20Contract = new web3.eth.Contract(ERC20ABI, returnTokken.address)
+        const erc20Contract = new web3.eth.Contract(ERC20ABI, returnToken.address)
         let balance = await erc20Contract.methods.balanceOf(account.address).call();
-        balance = parseFloat(balance)/10**returnTokken.decimals
+        balance = parseFloat(balance)/10**returnToken.decimals
 
 
-        returnTokken.balance = balance
-        returnTokken.price = price
+        returnToken.balance = balance
+        returnToken.price = price
 
         if (callbackInner) {
-          callbackInner(null, returnTokken)
+          callbackInner(null, returnToken)
         } else {
-          return returnTokken
+          return returnToken
         }
       }, (err, pairsData) => {
         if(err) {
@@ -296,11 +296,11 @@ class Store {
 
   _callPrice = async (web3, pair) => {
     try {
-      const keep3rOracleContract = new web3.eth.Contract(Keep3rOracleABI, KEEPER_ORACLE_ADDRESS)
+      const optionsReserveContract = new web3.eth.Contract(OptionsReserveABI, OPTIONS_RESERVE_ADDRESS)
 
       let sendAmount0 = (10**pair.token0.decimals).toFixed(0)
 
-      const consult0To1 = await keep3rOracleContract.methods.current(pair.token0.address, sendAmount0, pair.token1.address).call({ })
+      const consult0To1 = await optionsReserveContract.methods.priceDAI(pair.token0.address, sendAmount0).call({ })
 
       return consult0To1/10**pair.token1.decimals
     } catch(e) {
@@ -394,11 +394,22 @@ class Store {
       async.map(arr, async (index, callback) => {
         try {
           const tokenIndex = await optionsContract.methods.tokenOfOwnerByIndex(account.address, index).call({ from: account.address })
-          let option = await optionsReserveContract.methods.options(tokenIndex).call({ from: account.address })
-          option.index = tokenIndex
+          const returnedOption = await optionsReserveContract.methods.options(tokenIndex).call({ from: account.address })
+
+          console.log(returnedOption)
+
+          let option = {
+            index: tokenIndex,
+            amount: returnedOption.amount,
+            asset: returnedOption.asset,
+            expire: returnedOption.expire,
+            optionType: returnedOption.optionType,
+            payment: returnedOption.payment,
+            strike: returnedOption.strike,
+          }
 
           let optionAsset = assets.filter((asset) => {
-            return asset.address === option.asset
+            return asset.address.toLowerCase() === option.asset.toLowerCase()
           })
 
           if(optionAsset && optionAsset.length > 0) {
@@ -466,32 +477,33 @@ class Store {
       const selectedAsset = selectedAssetArr[0]
 
       const optionsReserveContract = new web3.eth.Contract(OptionsReserveABI, OPTIONS_RESERVE_ADDRESS)
-      const amount = Big(assetAmount).times(Big(10).pow(parseInt(selectedAsset.decimals)))
+
+      const amount = Big(assetAmount).times(Big(10).pow(parseInt(selectedAsset.decimals))).toFixed(0)
+      const strikeAmount = Big(strikePrice).times(Big(10).pow(parseInt(quoteAsset.decimals))).toFixed(0)
 
       let period = 0
       switch (holdingPeriod) {
         case 0:
-          period = 4860
+          period = 1
           break;
         case 1:
-          period = 4860*7
+          period = 7
           break;
         case 2:
-          period = 4860*14
+          period = 14
           break;
         case 3:
-          period = 4860*21
+          period = 21
           break;
         case 4:
-          period = 4860*28
+          period = 28
           break;
         default:
-          period = 4860
+          period = 1
           break;
       }
 
-      const fees = await optionsReserveContract.methods.fee(quoteAsset.address, selectedAsset.address, amount.toFixed(0), 2, period.toFixed(0), optionType).call({ from: account.address });
-      console.log(fees)
+      const fees = await optionsReserveContract.methods.fee(quoteAsset.address, selectedAsset.address, amount, strikeAmount, period.toFixed(0), optionType).call({ from: account.address });
       let returnFees = fees/10**quoteAsset.decimals
 
       return emitter.emit(OPTIONS_FEES_RETURNED, returnFees)
@@ -529,14 +541,12 @@ class Store {
       const selectedAsset = selectedAssetArr[0]
       const quoteAsset = store.getStore('quoteAsset')
 
-      console.log(quoteAsset, account, fees, OPTIONS_RESERVE_ADDRESS)
-
       this._checkApproval(quoteAsset, account, fees, OPTIONS_RESERVE_ADDRESS, (err) => {
         if(err) {
           return emitter.emit(ERROR, err);
         }
 
-        this._callCreate(web3, account, assetAmount, optionType, selectedAsset, (err, data) => {
+        this._callCreate(web3, account, assetAmount, optionType, selectedAsset, fees, quoteAsset, holdingPeriod, strikePrice, (err, data) => {
           if(err) {
             return emitter.emit(ERROR, err);
           }
@@ -579,14 +589,37 @@ class Store {
     }
   }
 
-  _callCreate = async (web3, account, assetAmount, optionType, selectedAsset, callback) => {
+  _callCreate = async (web3, account, assetAmount, optionType, selectedAsset, fees, quoteAsset, holdingPeriod, strikePrice, callback) => {
 
     const optionsReserveContract = new web3.eth.Contract(OptionsReserveABI, OPTIONS_RESERVE_ADDRESS)
 
-    const amount = Big(assetAmount).times(Big(10).pow(parseInt(selectedAsset.decimals)))
+    const amount = Big(assetAmount).times(Big(10).pow(parseInt(selectedAsset.decimals))).toFixed(0)
+    const strikeAmount = Big(strikePrice).times(Big(10).pow(parseInt(quoteAsset.decimals))).toFixed(0)
+    const maxFee = Big(fees).times(2).times(Big(10).pow(parseInt(quoteAsset.decimals))).toFixed(0)
 
-    console.log(selectedAsset.address, amount.toFixed(0), optionType.toFixed(0))
-    optionsReserveContract.methods.createOption(selectedAsset.address, amount.toFixed(0), optionType.toFixed(0)).send({ from: account.address, gasPrice: web3.utils.toWei(await this._getGasPrice(), 'gwei') })
+    let period = 0
+    switch (holdingPeriod) {
+      case 0:
+        period = 1
+        break;
+      case 1:
+        period = 7
+        break;
+      case 2:
+        period = 14
+        break;
+      case 3:
+        period = 21
+        break;
+      case 4:
+        period = 28
+        break;
+      default:
+        period = 1
+        break;
+    }
+
+    optionsReserveContract.methods.createOption(quoteAsset.address, selectedAsset.address, amount, strikeAmount, period, optionType.toFixed(0), maxFee).send({ from: account.address, gasPrice: web3.utils.toWei(await this._getGasPrice(), 'gwei') })
     .on('transactionHash', function(hash){
       console.log(hash)
       callback(null, hash)
